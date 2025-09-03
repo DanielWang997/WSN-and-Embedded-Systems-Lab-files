@@ -1,0 +1,39 @@
+VT
+0.092+0.0948+0.0685+0.1374+0.17+0.107+0.073+0.083+0.0639+0.0655 + 0.112 =1.0671
+
+
+DT
+0.13+0.11+0.22+0.11+0.14+0.19+0.13=1.03
+
+
+
+
+
+
+
+
+
+% Calculate and display the length of each edge in the Delaunay triangulation
+for i = 1:size(DT.ConnectivityList, 1)
+    for j = 1:3
+        p1 = DT.ConnectivityList(i, j);
+        p2 = DT.ConnectivityList(i, mod(j, 3) + 1);
+        textX = (DT.Points(p1, 1) + DT.Points(p2, 1)) / 2;
+        textY = (DT.Points(p1, 2) + DT.Points(p2, 2)) / 2;
+        distance = sqrt((DT.Points(p1, 1) - DT.Points(p2, 1))^2 + (DT.Points(p1, 2) - DT.Points(p2, 2))^2);
+        text(textX, textY, sprintf('%.2f', distance), 'Color', 'green', 'FontSize', 8);
+    end
+end
+
+% Highlight a specific path on the Delaunay Triangulation
+%highlightPath = [1, 5, 10]; % Example indices, replace with actual ones
+%for k = 1:length(highlightPath)-1
+    %plot([DT.Points(highlightPath(k), 1), DT.Points(highlightPath(k+1), 1)], ...
+         %[DT.Points(highlightPath(k), 2), DT.Points(highlightPath(k+1), 2)], ...
+         %'m-', 'LineWidth', 3); % 'm-' for magenta color, 3 for line width
+%end
+
+%title('Delaunay Triangulation with Edge Lengths');
+%hold off; % Release the plot
+
+

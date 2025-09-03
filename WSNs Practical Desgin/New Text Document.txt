@@ -1,0 +1,15 @@
+560 + 442 +(24+24+24) + 165 (+29) + 109 + 320+(24) + 216 (+29+29) + 585 (hallway) = 2397
+
+上下 上上 下下
+
+
+
+Traffic Flow Analysis: Hallways are transit areas where people move from one place to another, making them ideal for monitoring overall traffic flow within a building. This data can help in understanding peak usage times, tracking movement patterns, and optimizing space utilization.
+
+Less Intrusive: Compared to more private or quiet spaces like libraries and cafes, hallways are 
+
+Emergency Response: In an emergency, knowing the occupancy and movement patterns in hallways can help first responders navigate more effectively and perform evacuations more efficiently. It can also help in planning evacuation routes and strategies in advance.
+
+
+Cost-Effective Installation: Since hallways are typically more open and less cluttered than libraries and cafes, installing and maintaining sensors might be easier and more cost-effective. There's usually less furniture or equipment to work around, which can simplify the installation process.
+

@@ -1,0 +1,854 @@
+@ This is a program to use an interrupt-enabled timer to trigger an accumulating
+@ 0.5 s count and display it in binary on the LEDs
+@ this program reuses code provided by ARM for enabling interrupts
+
+@ first set up exception vector table
+.section .vectors, "ax"
+  b _start
+  b evt_undef
+  b evt_undef
+  b evt_undef
+  b evt_undef
+  .word 0
+  b service_irq
+  b evt_undef
+
+.text
+.global _start
+_start:
+  @ bit pattern to change to IRQ mode
+  mov r1, #0b11010010
+  @ change to IRQ mode
+  msr cpsr_c, r1
+  @ set up stack pointer for IRQ mode
+  ldr sp, =0xFFFFFFFC
+
+  @ bit pattern to change to supervisor mode
+  @ with interrupts disabled
+  mov r1, #0b11010011
+  @ change to supervisor mode
+  msr cpsr, r1
+  @ set stack pointer for supervisor mode
+  ldr sp, =0x3FFFFFFC
+
+  @ call routine to configure the GIC
+  bl config_gic
+
+  @ initialize timer for 1 s count with interrupts
+  @ timer address
+  ldr r0, =0xFF202000
+  @ turn off timer
+  mov r1, #8
+  str r1, [r0, #4]
+  @ clear time-outs
+  str r1, [r0]
+  @ set interval
+  ldr r1, =100000000
+  @ write low period
+  str r1, [r0, #8]
+  @ shift bits right by 16
+  lsr r1, #16
+  @ write high period
+  str r1, [r0, #12]
+  @ bit pattern for count-down repeat with 
+  @ interrupts for control register
+  mov r1, #7
+  @ start timer
+  str r1, [r0, #4]
+
+  @ turn on button interrupts
+  @ there is an interrupt control register
+  @ at [base+8]
+  @ set bit(n) = 1 for button(n) to have 
+  @ interrupts
+  ldr r0, =0xFF200050
+  @ here I just want button(0) to have interrupts
+  @ so use bit(0) = 1
+  @ use #15 (0b1111) to enable interrupts on
+  @ all 4 buttons, etc.
+  mov r1, #1
+  str r1, [r0, #8]
+
+  @ enable IRQ interrupts in the processor
+  mov r0, #0b01010011
+  msr cpsr_c, r0
+  
+  @count down and repeat to achieve 1s display
+  mov r10 , #0b0110 
+  ldr r9, =0xFF200020  @ 7-segment display base address
+  ldr r0, =0xFF202000
+  ldr r2, =0xFF200000
+  
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ main program is a dead loop
+
+
+@Third_Digit
+CD_Third_Digit:
+
+	@ Preserve state by pushing remaining registers
+    push {r8, r0, r3}
+	
+	mov r3, #0
+	
+    @ display '9'
+    ldr r8 , =0x6F0000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '8'
+    ldr r8 , =0x7F0000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '7'
+    ldr r8 , =0x070000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '6'
+    ldr r8 , =0x7D0000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '5'
+    ldr r8 , =0x6D0000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '4'
+    ldr r8 , =0x660000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '3'
+    ldr r8 , =0x4F0000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '2'
+    ldr r8 , =0x5B0000
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ display '1'
+    ldr r8 , =0x060000
+    str r8 , [r9]
+    bl CD_Second_Digit
+
+    @ display '0'
+    ldr r8 , =0x3F0000 
+    str r8 , [r9]
+    bl CD_Second_Digit
+	
+	@ Restore state by popping registers
+    pop {r8, r0}
+	
+    @ Exit subroutine
+    b CD_Third_Digit
+
+@Second_Digit	
+CD_Second_Digit:
+    push {lr , r11, r7}
+	
+	@ Set up frame pointer and move stack pointer ahead
+    mov r11, sp
+    sub sp, sp, #32
+	
+    @ display '9'
+    ldr r7 , =0x6F00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '8'
+    ldr r7 , =0x7F00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '7'
+    ldr r7 , =0x0700
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '6'
+    ldr r7 , =0x7D00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '5'
+    ldr r7 , =0x6D00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '4'
+    ldr r7 , =0x6600
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '3'
+    ldr r7 , =0x4F00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '2'
+    ldr r7 , =0x5B00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '1'
+    ldr r7 , =0x0600
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+
+    @ display '0'
+    ldr r7 , =0x3F00
+    add r7, r7, r8
+    str r7 , [r9]
+    bl CD_First_Digit
+	
+    @ Rewind stack pointer over temporary storage
+    mov sp, r11	
+	
+    @ Pop previous frame pointer and link register
+    pop {lr, r11, r7}	
+	
+    @ Exit subroutine
+    bx lr
+
+@First_Digit	
+CD_First_Digit:
+    push {lr , r11, r6, r3 }
+	@ Set up frame pointer and move stack pointer ahead
+    mov r11, sp
+    sub sp, sp, #64
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+	
+    @ display '9'
+    ldr r6 , =0x6F
+    add r6, r6, r7
+    str r6 , [r9]
+    str r10 , [r0, #4]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+
+    @ display '8'
+    ldr r6 , =0x7F
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+
+    @ display '7'
+    ldr r6 , =0x07
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+ 
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+
+    @ display '6'
+    ldr r6 , =0x7D
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+
+    @ display '5'
+    ldr r6 , =0x6D
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+ 
+    @ display '4'
+    ldr r6 , =0x66
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+  
+    @ display '3'
+    ldr r6 , =0x4F
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+
+    @ display '2'
+    ldr r6 , =0x5B
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+  
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+	
+    @ display '1'
+    ldr r6 , =0x06
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+    
+    ldr r3, [r2]
+    cmp r3, #1
+	addeq sp, sp, #64
+    beq CU_Third_Digit 
+
+    @ display '0'
+    ldr r6 , =0x3F
+    add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+	
+    @ Rewind stack pointer over temporary storage
+    mov sp, r11	
+    @ Pop previous frame pointer and link register
+    pop {lr, r11, r6, r3}	
+	
+    @ Exit subroutine
+    bx lr
+
+@Third_Digit
+CU_Third_Digit:
+
+	@ Preserve state by pushing remaining registers
+    push {r8, r0, r3}
+	
+	mov r3, #1
+	
+    @ display '0'
+    ldr r8 , =0x3F0000 
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '1'
+    ldr r8 , =0x060000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '2'
+    ldr r8 , =0x5B0000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '3'
+    ldr r8 , =0x4F0000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '4'
+    ldr r8 , =0x660000
+    str r8 , [r9]
+    bl CU_Second_Digit
+	
+    @ display '5'
+    ldr r8 , =0x6D0000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '6'
+    ldr r8 , =0x7D0000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '7'
+    ldr r8 , =0x070000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '8'
+    ldr r8 , =0x7F0000
+    str r8 , [r9]
+    bl CU_Second_Digit
+
+    @ display '9'
+    ldr r8 , =0x6F0000
+    str r8 , [r9]
+    bl CU_Second_Digit
+	
+	@ Restore state by popping registers
+    pop {r8, r0}
+	
+    @ Exit subroutine
+    b CU_Third_Digit
+
+@Second_Digit	
+CU_Second_Digit:
+    push {lr , r11, r7}
+	
+	@ Set up frame pointer and move stack pointer ahead
+    mov r11, sp
+    sub sp, sp, #32
+
+    @ display '0'
+    ldr r7 , =0x3F00 
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '1'
+    ldr r7 , =0x0600
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '2'
+    ldr r7 , =0x5B00
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '3'
+    ldr r7 , =0x4F00
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '4'
+    ldr r7 , =0x6600
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+	
+    @ display '5'
+    ldr r7 , =0x6D00
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '6'
+    ldr r7 , =0x7D00
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '7'
+    ldr r7 , =0x0700
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '8'
+    ldr r7 , =0x7F00
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+
+    @ display '9'
+    ldr r7 , =0x6F00
+	add r7, r7, r8
+    str r7 , [r9]
+    bl CU_First_Digit
+	
+    @ Rewind stack pointer over temporary storage
+    mov sp, r11	
+	
+    @ Pop previous frame pointer and link register
+    pop {lr, r11, r7}	
+	
+    @ Exit subroutine
+    bx lr
+
+@First_Digit	
+CU_First_Digit:
+    push {lr , r11, r6 }
+	@ Set up frame pointer and move stack pointer ahead
+    mov r11, sp
+    sub sp, sp, #64
+    
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 
+    
+    @ display '0'
+    ldr r6 , =0x3F 
+	add r6, r6, r7
+    str r6 , [r9]
+    str r10 , [r0, #4]	
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit  
+
+    @ display '1'
+    ldr r6 , =0x06
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+	
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit  
+
+    @ display '2'
+    ldr r6 , =0x5B
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+  
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 
+	
+    @ display '3'
+    ldr r6 , =0x4F
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+	
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 
+ 
+
+    @ display '4'
+    ldr r6 , =0x66
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+	
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 	
+  	
+	
+    @ display '5'
+    ldr r6 , =0x6D
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 
+
+
+    @ display '6'
+    ldr r6 , =0x7D
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 
+
+    @ display '7'
+    ldr r6 , =0x07
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit 
+  
+
+    @ display '8'
+    ldr r6 , =0x7F
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+
+    ldr r3, [r2]
+    cmp r3, #0
+	addeq sp, sp, #64
+    beq CD_Third_Digit    
+
+    @ display '9'
+    ldr r6 , =0x6F
+	add r6, r6, r7
+    str r6 , [r9]
+    bl display_1_second
+	
+    @ Rewind stack pointer over temporary storage
+    mov sp, r11	
+    @ Pop previous frame pointer and link register
+    pop {lr, r11, r6}	
+	
+    @ Exit subroutine
+    bx lr
+
+
+display_1_second:
+		 
+     @ push r4, r6 for overwriting r4, r6
+     push {r4, r10}	
+	 
+	 @ check if it passed 1s
+     ldr r4 , [r0]
+     cmp r4 , #2
+	 @ pop r4, r6 for overwriting r4, r6  
+     pop {r4 , r10}
+	 @ loop
+     beq display_1_second
+	 @ write anything to clear the timer
+     str r10 , [r0]
+	 @ branch back to main loop
+     bx lr 
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ Define the exception service routines
+@ most of these shouldn't happen, so they all
+@ go to the same dead loop
+evt_undef:
+  b evt_undef
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ this one is for interrupts
+service_irq:
+  push {r0-r7, lr}
+
+  @ read the ICCIAR from the CPU Interface
+  ldr r4, =0xFFFEC100
+  ldr r5, [r4, #12] 
+
+  @ see if timer (IRQ #72)
+  @ called interrupt
+  cmp r5, #72
+  beq timer_isr
+
+  @ see if buttons (IRQ #73)
+  @ called interrupt
+  cmp r5, #73
+  beq button_isr
+
+  @ repeat the above for any additional
+  @ hardware that uses interrupts
+
+exit_irq:
+  @ clear end-of-interrupt register (ICCEOIR)
+  str r5, [r4, #16]
+
+  pop {r0-r7, lr}
+  @ return from IRQ mode
+  subs pc, lr, #4
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ each time counter rolls over this routine is called
+.global timer_isr
+timer_isr:
+  @ note that this is called from service_irq
+  @ and service_irq already preserved state
+
+  @ timer base address
+  ldr r0, =0xFF202000
+  @ clear timeout
+  mov r1, #1
+  str r1, [r0]
+
+
+  b exit_irq
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ each time button is pressed this routine is called
+.global button_isr
+button_isr:
+  @ note that this is called from service_irq
+  @ and service_irq already preserved state
+
+  @ buttons base address
+  ldr r0, =0xFF200050
+  @ clear interrupt
+  mov r1, #1
+  
+  str r1, [r0, #12]
+
+  @ 7-segment displays address
+  ldr r0, =0xFF200020
+  
+  str r1, [r0]
+  
+  @ store status of push buttons
+  ldr r2, =0xFF200000
+  
+  ldr r3, [r2]
+  
+  cmp r3, #1
+  
+  moveq r6, #0       
+  movne r6, #1         
+  
+  str r6, [r2]         
+  
+  b exit_irq
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ Configure the Generic Interrupt Controller (GIC)
+.global config_gic
+config_gic:
+  push {lr}
+  @ to configure an interrupt
+  @  1. set target cpu in ICDIPTRn
+  @  2. enable interrupt in ICDISERn
+
+  @ timer is IRQ #72
+  mov r0, #72
+  @ bit mask for cpu0
+  mov r1, #1 
+  @ subroutine to configure GIC interrupt registers
+  bl config_interrupt
+
+  @ buttons are IRQ #73
+  mov r0, #73
+  @ bit mask for cpu0
+  mov r1, #1 
+  @ subroutine to configure GIC interrupt registers
+  bl config_interrupt
+
+  @ repeat the above for any additional
+  @ hardware that uses interrupts
+
+  @ configure the GIC CPU Interface
+  @ base address of CPU Interface 
+  ldr r0, =0xFFFEC100
+  @ enable all priority levels
+  ldr r1, =0xFFFF
+  @ write to priority register (ICCPMR)
+  str r1, [r0, #4]
+  @ set the enable bit in the CPU Interface Control Register (ICCICR).
+  mov r1, #1
+  str r1, [r0]
+
+  @ set the enable bit in the Distributor Control Register (ICDDCR).
+  ldr r0, =0xFFFED000
+  str r1, [r0]
+
+  pop {lr}  
+  bx lr
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ configure registers in GIC
+@ this works for any IRQ
+@ make sure IRQ # is in r0
+@ and CPU target is in r1
+@ usually r1 is #1
+@
+@ call this routine once for each IRQ #
+config_interrupt:
+  push {r4-r5, lr}
+
+  @ calculate register in ICDISERn
+  lsr r4, r0, #3
+  bic r4, r4, #3
+  @ get ICDISERn base address
+  ldr r2, =0xFFFED100
+  @ get IRQ #-specific ICDISERn address
+  add r4, r2, r4
+  @ find bit
+  and r2, r0, #0x1F
+  @ get bit mask to enable
+  mov r5, #1 
+  lsl r2, r5, r2
+  @ now register address is in r4 and bit mask is in r2
+  @ set the enable bit for specific IRQ # in ICDISERn register
+  ldr r3, [r4]
+  orr r3, r3, r2
+  str r3, [r4]
+
+  @ if you wanted to specify whether interrupt was
+  @ edge- or level-triggered, you could do so here
+  @ this uses ICDICFRn register
+  @ note that this requires you to calculate different
+  @ register and byte address based on IRQ
+  @ I *think* this is the same as doubling the above addresses
+  @ so:
+  @  lsr r4, r0, #3
+  @  bic r4, r4, #3
+  @  lsl r4, #1
+  @  ldr r2, =0xFFFEDC00
+  @  add r4, r2, r4
+  @  and r2, r0, #0x1F
+  @  mov r5, #1
+  @  lsl r2, r5, r2
+  @  ldr r3, [r4]
+  @  orr r3, r3, rn
+  @  str r3, [r4]
+  @ should work, but I am too lazy to check
+  @ note that choice to set edge-/level-
+  @ should be in rn (should probably be r2, but 
+  @ then you need to change the use of r3 in all 
+  @ the above code)
+
+  @ now calculate register in ICDIPTRn
+  bic r4, r0, #3
+  @ get ICDIPTRn base address
+  ldr r2, =0xFFFED800
+  @ find IRQ #-specific ICDIPTRn address
+  add r4, r2, r4
+  @ find byte
+  and r2, r0, #3
+  @ combine word and byte address
+  add r4, r2, r4
+  @ now byte address is in r4
+  @ set CPU target in byte for specific IRQ # in ICDIPTRn register
+  strb r1, [r4]
+
+  @ if you wanted to set a specific priority
+  @ for the interrupt, you could do so here
+  @ the priority register is ICDIPRn and has same
+  @ address and byte as the CPU target
+  @ so: 
+  @  ldr r2, =0xFFFED400
+  @  strb rx, [r4]
+  @ works if rx is whatever register holds the priority
+  @ value (should probably be r3, but then you need
+  @ to change the use of r3 in all the above code)
+
+  pop {r4-r5, lr}
+  bx lr
+
+.end
